@@ -63,6 +63,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .item-issues { margin-top: 12px; padding: 10px 12px; background: #fff1f0; border-radius: 4px; }
 .issue-item { color: #ff4d4f; font-size: 12px; padding: 3px 0; }
 .issue-item::before { content: '⚠ '; }
+.budget-bar-wrap { margin-top: 8px; }
+.budget-bar-outer { height: 20px; background: #f0f0f0; border-radius: 10px; overflow: hidden; position: relative; }
+.budget-bar-inner { height: 100%; border-radius: 10px; transition: width 0.3s, background 0.3s; }
+.budget-bar-inner.normal { background: linear-gradient(90deg, #52c41a, #73d13d); }
+.budget-bar-inner.warning { background: linear-gradient(90deg, #faad14, #ffc53d); }
+.budget-bar-inner.danger { background: linear-gradient(90deg, #ff4d4f, #ff7875); }
+.budget-bar-label { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #333; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -416,6 +423,23 @@ function renderValidationResult(d) {
     html += `<div class="validation-box success"><strong>🎉 校验通过：</strong>所有项目均符合 ${d.employee.level} 差旅标准，可正常提交。</div>`;
   }
 
+  if (v.budgetValidation) {
+    const bv = v.budgetValidation;
+    const barWidth = Math.min(bv.usedRatio, 100);
+    const barClass = bv.isOverBudget ? 'danger' : bv.usedRatio >= 80 ? 'warning' : 'normal';
+    const barColor = bv.isOverBudget ? '#ff4d4f' : bv.usedRatio >= 80 ? '#fa8c16' : '#52c41a';
+    html += `<div class="validation-box ${bv.isOverBudget ? 'error' : 'info'}">
+      <strong>💰 审批预算管控：</strong>审批预算 ¥${bv.budgetAmount.toLocaleString()} | 本单合规金额 ¥${bv.currentReportCompliantAmount.toLocaleString()} | 累计已用 ¥${bv.totalCompliantAmount.toLocaleString()}（占比 ${bv.usedRatio}%）
+      <div class="budget-bar-wrap">
+        <div class="budget-bar-outer">
+          <div class="budget-bar-inner ${barClass}" style="width:${barWidth}%"></div>
+          <div class="budget-bar-label">${bv.usedRatio}%</div>
+        </div>
+      </div>
+      ${bv.isOverBudget ? `<div style="margin-top:8px;color:#ff4d4f;font-weight:600;">⚠️ 预算超支预警：累计合规金额已超出审批预算 ¥${bv.overBudgetAmount.toLocaleString()}，提交后财务将重点关注，但不阻止提交。</div>` : ''}
+    </div>`;
+  }
+
   box.innerHTML = html;
 }
 
@@ -435,6 +459,9 @@ async function submitForm() {
   }
   if (validationCache && validationCache.totalOverAmount > 0) {
     confirmMsg += `⚠️ 警告：超标金额 ¥${validationCache.totalOverAmount.toLocaleString()}，超标项目可能被财务驳回！\n`;
+  }
+  if (validationCache && validationCache.budgetValidation && validationCache.budgetValidation.isOverBudget) {
+    confirmMsg += `⚠️ 警告：累计合规金额已超出审批预算 ¥${validationCache.budgetValidation.overBudgetAmount.toLocaleString()}，财务将重点关注！\n`;
   }
   confirmMsg += `\n报销总额：¥${expenseItems.reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}`;
   if (!confirm(confirmMsg)) return;

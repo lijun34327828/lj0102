@@ -482,6 +482,47 @@ function validateExpenseItem(item, employeeLevel) {
   };
 }
 
+function calculateBudgetValidation(approvalId, currentReportId, currentItems, currentEmployeeLevel) {
+  if (!approvalId) return null;
+
+  const approval = approvals.find(a => a.id === approvalId);
+  if (!approval) return null;
+
+  const siblingReports = expenseReports.filter(r => r.approvalId === approvalId && r.id !== currentReportId);
+
+  let existingCompliantTotal = 0;
+  siblingReports.forEach(report => {
+    report.items.forEach(item => {
+      const v = validateExpenseItem(item, report.employeeLevel);
+      existingCompliantTotal += v.compliantAmount;
+    });
+  });
+
+  let currentCompliantTotal = 0;
+  if (currentItems && currentItems.length > 0) {
+    currentItems.forEach(item => {
+      const v = validateExpenseItem(item, currentEmployeeLevel);
+      currentCompliantTotal += v.compliantAmount;
+    });
+  }
+
+  const totalCompliantAmount = existingCompliantTotal + currentCompliantTotal;
+  const budgetAmount = approval.amount;
+  const usedRatio = budgetAmount > 0 ? totalCompliantAmount / budgetAmount : 0;
+  const isOverBudget = totalCompliantAmount > budgetAmount;
+  const overBudgetAmount = isOverBudget ? Math.round((totalCompliantAmount - budgetAmount) * 100) / 100 : 0;
+
+  return {
+    budgetAmount,
+    currentReportCompliantAmount: Math.round(currentCompliantTotal * 100) / 100,
+    existingCompliantAmount: Math.round(existingCompliantTotal * 100) / 100,
+    totalCompliantAmount: Math.round(totalCompliantAmount * 100) / 100,
+    usedRatio: Math.round(usedRatio * 10000) / 100,
+    isOverBudget,
+    overBudgetAmount
+  };
+}
+
 function getTierLabel(tier) {
   const labels = { firstTier: '一线城市', secondTier: '二线城市', thirdTier: '三线城市' };
   return labels[tier] || '三线城市';
@@ -596,6 +637,8 @@ app.get('/api/expenses/:id', (req, res) => {
   const overallCompliant = hasApproval && dateValidation.matched && cityValidation.matched &&
     itemValidations.every(v => !v.isOverLimit);
 
+  const budgetValidation = calculateBudgetValidation(report.approvalId, report.id, report.items, report.employeeLevel);
+
   res.json({
     success: true,
     data: {
@@ -609,7 +652,8 @@ app.get('/api/expenses/:id', (req, res) => {
         cityValidation,
         itemValidations,
         overallCompliant,
-        rejectWithoutApproval: !hasApproval
+        rejectWithoutApproval: !hasApproval,
+        budgetValidation
       }
     }
   });
@@ -647,6 +691,8 @@ app.post('/api/expenses/validate', (req, res) => {
     return sum + over;
   }, 0);
 
+  const budgetValidation = calculateBudgetValidation(approvalId, null, items, employee.level);
+
   res.json({
     success: true,
     data: {
@@ -661,7 +707,8 @@ app.post('/api/expenses/validate', (req, res) => {
         itemValidations,
         overallCompliant,
         totalCompliantAmount,
-        totalOverAmount
+        totalOverAmount,
+        budgetValidation
       }
     }
   });

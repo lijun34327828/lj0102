@@ -106,6 +106,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 13px; padding: 4px 12px; border-radius: 4px; }
 .nav-links a:hover { background: rgba(255,255,255,0.15); color: white; }
 .nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+.budget-section { margin-bottom: 20px; }
+.budget-progress { padding: 16px 20px; background: #fafafa; border-radius: 8px; border: 1px solid #e8e8e8; }
+.budget-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 12px; }
+.budget-stat { text-align: center; }
+.budget-stat .label { font-size: 12px; color: #999; margin-bottom: 4px; }
+.budget-stat .value { font-size: 18px; font-weight: bold; color: #333; }
+.budget-stat.used .value { color: #1890ff; }
+.budget-stat.remaining .value { color: #52c41a; }
+.budget-stat.remaining.over .value { color: #ff4d4f; }
+.budget-bar-wrap { margin-top: 8px; }
+.budget-bar-outer { height: 24px; background: #f0f0f0; border-radius: 12px; overflow: hidden; position: relative; }
+.budget-bar-inner { height: 100%; border-radius: 12px; transition: width 0.3s, background 0.3s; }
+.budget-bar-inner.normal { background: linear-gradient(90deg, #52c41a, #73d13d); }
+.budget-bar-inner.warning { background: linear-gradient(90deg, #faad14, #ffc53d); }
+.budget-bar-inner.danger { background: linear-gradient(90deg, #ff4d4f, #ff7875); }
+.budget-bar-label { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #333; font-weight: 600; }
+.budget-over-note { margin-top: 10px; padding: 8px 12px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 4px; color: #ff4d4f; font-size: 13px; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -375,6 +392,15 @@ function renderDetail() {
     }, 0);
     const systemCompliantAmount = Object.values(vMap).reduce((s, v) => s + v.compliantAmount, 0);
     const decidedCount = Object.keys(decisions).length;
+    const bv = validations.budgetValidation;
+    let budgetSummaryHtml = '';
+    if (bv) {
+      budgetSummaryHtml = `
+        <div class="summary-row"><span class="label">审批预算金额</span><span>¥${bv.budgetAmount.toLocaleString()}</span></div>
+        <div class="summary-row"><span class="label">同审批单累计合规金额</span><span>¥${bv.totalCompliantAmount.toLocaleString()}</span></div>
+        ${bv.isOverBudget ? `<div class="summary-row over" style="font-weight:bold;"><span class="label">⚠️ 超预算金额</span><span style="color:#ff4d4f;font-weight:bold;">¥${bv.overBudgetAmount.toLocaleString()}</span></div>` : `<div class="summary-row" style="color:#52c41a;"><span class="label">✓ 预算剩余额度</span><span style="color:#52c41a;">¥${(bv.budgetAmount - bv.totalCompliantAmount).toLocaleString()}</span></div>`}
+      `;
+    }
     summaryHtml = `
       <div class="section">
         <div class="section-title">审批汇总</div>
@@ -382,6 +408,7 @@ function renderDetail() {
           <div class="summary-row"><span class="label">报销单总额</span><span>¥${report.totalAmount.toLocaleString()}</span></div>
           <div class="summary-row"><span class="label">系统计算合规金额</span><span>¥${systemCompliantAmount.toFixed(2)}</span></div>
           <div class="summary-row over"><span class="label">系统计算超标金额</span><span>¥${systemOverAmount.toFixed(2)}</span></div>
+          ${budgetSummaryHtml}
           <div class="summary-row approved"><span class="label">✓ 拟通过金额</span><span>¥${approvedTotal.toLocaleString()}</span></div>
           <div class="summary-row over"><span class="label">✗ 拟剔除金额</span><span>¥${rejectedTotal.toLocaleString()}</span></div>
           <div class="summary-row"><span class="label">已决策项目</span><span>${decidedCount} / ${report.items.length} 项</span></div>
@@ -422,6 +449,47 @@ function renderDetail() {
     </div>
   ` : '';
 
+  let budgetHtml = '';
+  if (validations.budgetValidation) {
+    const bv = validations.budgetValidation;
+    const barWidth = Math.min(bv.usedRatio, 100);
+    const barClass = bv.isOverBudget ? 'danger' : bv.usedRatio >= 80 ? 'warning' : 'normal';
+    const remainingAmount = bv.budgetAmount - bv.totalCompliantAmount;
+    const remainingClass = bv.isOverBudget ? 'over' : '';
+    budgetHtml = `
+      <div class="section budget-section">
+        <div class="section-title">审批预算使用进度</div>
+        <div class="budget-progress">
+          <div class="budget-stats">
+            <div class="budget-stat">
+              <div class="label">审批预算金额</div>
+              <div class="value">¥${bv.budgetAmount.toLocaleString()}</div>
+            </div>
+            <div class="budget-stat used">
+              <div class="label">累计已用金额</div>
+              <div class="value">¥${bv.totalCompliantAmount.toLocaleString()}</div>
+            </div>
+            <div class="budget-stat remaining ${remainingClass}">
+              <div class="label">剩余额度</div>
+              <div class="value">${bv.isOverBudget ? `-¥${bv.overBudgetAmount.toLocaleString()}` : `¥${remainingAmount.toLocaleString()}`}</div>
+            </div>
+          </div>
+          <div class="budget-bar-wrap">
+            <div class="budget-bar-outer">
+              <div class="budget-bar-inner ${barClass}" style="width:${barWidth}%"></div>
+              <div class="budget-bar-label">${bv.usedRatio}%</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:#999;">
+            本单合规金额 ¥${bv.currentReportCompliantAmount.toLocaleString()}
+            ${bv.existingCompliantAmount > 0 ? ` | 同审批单其他报销单已用 ¥${bv.existingCompliantAmount.toLocaleString()}` : ''}
+          </div>
+          ${bv.isOverBudget ? `<div class="budget-over-note">⚠️ 累计合规金额已超出审批预算 ¥${bv.overBudgetAmount.toLocaleString()}，请重点关注</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
   container.innerHTML = `
     <div class="detail-panel">
       <div class="detail-header">
@@ -435,6 +503,7 @@ function renderDetail() {
           <div class="meta-item"><span>提交日期：</span>${report.submitDate}</div>
         </div>
       </div>
+      ${budgetHtml}
       <div class="section">
         <div class="section-title">合规校验结果</div>
         ${validationsHtml}
@@ -488,6 +557,10 @@ async function submitReview() {
   if (decidedItems.length === 0) { alert('请至少对一项费用做出审批决策'); return; }
   if (decidedItems.length < currentDetail.report.items.length) {
     if (!confirm(`还有 ${currentDetail.report.items.length - decidedItems.length} 项未决策，是否继续提交？未决策项将默认按合规金额通过`)) return;
+  }
+  const bv = currentDetail.validations.budgetValidation;
+  if (bv && bv.isOverBudget) {
+    if (!confirm(`⚠️ 预算超支预警：\n\n该报销单累计合规金额已超出审批预算 ¥${bv.overBudgetAmount.toLocaleString()}。\n审批预算：¥${bv.budgetAmount.toLocaleString()}\n累计已用：¥${bv.totalCompliantAmount.toLocaleString()}\n\n是否确认提交审核结果？`)) return;
   }
   const vMap = getValidationMap();
   const finalDecisions = currentDetail.report.items.map(item => {
