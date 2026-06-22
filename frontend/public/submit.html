@@ -241,7 +241,7 @@ function renderItems() {
           </div>
           <div class="form-group">
             <label><span class="required">*</span> 细分类别</label>
-            ${renderCategorySelect(item)}
+            ${renderCategorySelect(item, idx)}
           </div>
         </div>
         <div class="form-row">
@@ -279,14 +279,20 @@ function renderItems() {
             <input type="number" min="1" placeholder="如：5" value="${item.days||''}" onchange="updateItemField(${idx},'days',parseInt(this.value)||1)" />
           </div>` : ''}
         </div>
-        ${isOver && v.issues.length > 0 ? `<div class="item-issues">${v.issues.map(i => `<div class="issue-item">${i.message}</div>`).join('')}</div>` : ''}
+        ${isOver && v.issues.length > 0 ? `<div class="item-issues">
+          ${v.issues.map(i => `<div class="issue-item">${i.message}</div>`).join('')}
+          <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #ffa39e;">
+            <div style="color:#52c41a;font-size:12px;">✓ 合规金额：¥${v.compliantAmount.toFixed(2)}</div>
+            <div style="color:#ff4d4f;font-size:12px;">✗ 超标金额：¥${(item.amount - v.compliantAmount).toFixed(2)}</div>
+          </div>
+        </div>` : ''}
       </div>
     `;
   }).join('');
   updateTotal();
 }
 
-function renderCategorySelect(item) {
+function renderCategorySelect(item, idx) {
   const cats = {
     transportation: [
       { v: 'highSpeedRail', l: '高铁/动车' },
@@ -305,7 +311,7 @@ function renderCategorySelect(item) {
     ]
   };
   const options = (cats[item.type] || []).map(c => `<option value="${c.v}" ${item.category===c.v?'selected':''}>${c.l}</option>`).join('');
-  return `<select onchange="updateItemField(${Array.from(document.querySelectorAll('.item-section')).findIndex(s => true)},'category',this.value)">${options}</select>`;
+  return `<select onchange="updateItemField(${idx},'category',this.value)">${options}</select>`;
 }
 
 function renderExtraFields(item, idx) {

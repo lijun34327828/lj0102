@@ -96,6 +96,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .approval-info { padding: 12px 16px; background: #f5f5f5; border-radius: 6px; font-size: 13px; }
 .approval-info .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
 .approval-info .row span:first-child { color: #888; }
+.over-limit-text { color: #ff4d4f; font-weight: bold; }
 .type-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-right: 6px; }
 .type-tag.transportation { background: #e6f7ff; color: #1890ff; }
 .type-tag.accommodation { background: #f9f0ff; color: #722ed1; }
@@ -302,6 +303,11 @@ function renderDetail() {
     if (item.nights) extraRows += `<div class="item-row"><span>间夜数</span><span>${item.nights} 晚</span></div>`;
     if (item.perNight) extraRows += `<div class="item-row"><span>单价</span><span class="${isOver && v.issues.some(i=>i.field==='accommodation') ? 'over-limit-text' : ''}">¥${item.perNight}/晚</span></div>`;
     if (item.days) extraRows += `<div class="item-row"><span>天数</span><span>${item.days} 天</span></div>`;
+    if (isOver && v.compliantAmount !== undefined) {
+      const overAmount = item.amount - v.compliantAmount;
+      extraRows += `<div class="item-row" style="color:#52c41a;"><span>合规金额</span><span>¥${v.compliantAmount.toFixed(2)}</span></div>`;
+      extraRows += `<div class="item-row" style="color:#ff4d4f;"><span>超标剔除</span><span>¥${overAmount.toFixed(2)}</span></div>`;
+    }
 
     let issuesHtml = '';
     if (isOver && v.issues.length > 0) {
@@ -363,12 +369,19 @@ function renderDetail() {
       }
       return s;
     }, 0);
+    const vMap = getValidationMap();
+    const systemOverAmount = Object.values(vMap).reduce((s, v) => {
+      return s + v.issues.reduce((sum, i) => sum + (i.overAmount || 0), 0);
+    }, 0);
+    const systemCompliantAmount = Object.values(vMap).reduce((s, v) => s + v.compliantAmount, 0);
     const decidedCount = Object.keys(decisions).length;
     summaryHtml = `
       <div class="section">
         <div class="section-title">审批汇总</div>
         <div class="summary-box">
           <div class="summary-row"><span class="label">报销单总额</span><span>¥${report.totalAmount.toLocaleString()}</span></div>
+          <div class="summary-row"><span class="label">系统计算合规金额</span><span>¥${systemCompliantAmount.toFixed(2)}</span></div>
+          <div class="summary-row over"><span class="label">系统计算超标金额</span><span>¥${systemOverAmount.toFixed(2)}</span></div>
           <div class="summary-row approved"><span class="label">✓ 拟通过金额</span><span>¥${approvedTotal.toLocaleString()}</span></div>
           <div class="summary-row over"><span class="label">✗ 拟剔除金额</span><span>¥${rejectedTotal.toLocaleString()}</span></div>
           <div class="summary-row"><span class="label">已决策项目</span><span>${decidedCount} / ${report.items.length} 项</span></div>

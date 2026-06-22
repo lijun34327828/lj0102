@@ -380,6 +380,20 @@ function getStandardByLevel(level) {
   return travelStandards[level] || travelStandards['P4-普通员工'];
 }
 
+const CABIN_COEFFICIENTS = {
+  highSpeedRail: {
+    '二等座': 1.0,
+    '一等座': 1.6,
+    '商务座': 3.0
+  },
+  flight: {
+    '经济舱': 1.0,
+    '超级经济舱': 1.3,
+    '商务舱': 2.5,
+    '头等舱': 3.5
+  }
+};
+
 function validateExpenseItem(item, employeeLevel) {
   const standard = getStandardByLevel(employeeLevel);
   const cityTier = getCityTier(item.city);
@@ -395,7 +409,7 @@ function validateExpenseItem(item, employeeLevel) {
       compliantAmount = item.amount - overAmount;
       issues.push({
         field: 'accommodation',
-        message: `住宿超标：${item.city}(${getTierLabel(cityTier)})标准${limitPerNight}元/晚，实际${item.perNight}元/晚`,
+        message: `住宿超标：${item.city}(${getTierLabel(cityTier)})标准${limitPerNight}元/晚，实际${item.perNight}元/晚，超标¥${overAmount.toFixed(2)}`,
         limit: limitPerNight,
         actual: item.perNight,
         overAmount: overAmount
@@ -409,11 +423,17 @@ function validateExpenseItem(item, employeeLevel) {
       const classOrder = { '二等座': 1, '一等座': 2, '商务座': 3 };
       if (classOrder[item.classLevel] > classOrder[allowedClass]) {
         isOverLimit = true;
+        const actualCoeff = CABIN_COEFFICIENTS.highSpeedRail[item.classLevel] || 1.0;
+        const allowedCoeff = CABIN_COEFFICIENTS.highSpeedRail[allowedClass] || 1.0;
+        const standardAmount = Math.round(item.amount * (allowedCoeff / actualCoeff) * 100) / 100;
+        const overAmount = Math.round((item.amount - standardAmount) * 100) / 100;
+        compliantAmount = standardAmount;
         issues.push({
           field: 'transportation_class',
-          message: `高铁舱位超标：职级标准${allowedClass}，实际${item.classLevel}`,
+          message: `高铁舱位超标：职级标准${allowedClass}，实际${item.classLevel}，按系数折算超标¥${overAmount.toFixed(2)}`,
           limit: allowedClass,
-          actual: item.classLevel
+          actual: item.classLevel,
+          overAmount: overAmount
         });
       }
     }
@@ -422,11 +442,17 @@ function validateExpenseItem(item, employeeLevel) {
       const classOrder = { '经济舱': 1, '超级经济舱': 2, '商务舱': 3, '头等舱': 4 };
       if (classOrder[item.classLevel] > classOrder[allowedClass]) {
         isOverLimit = true;
+        const actualCoeff = CABIN_COEFFICIENTS.flight[item.classLevel] || 1.0;
+        const allowedCoeff = CABIN_COEFFICIENTS.flight[allowedClass] || 1.0;
+        const standardAmount = Math.round(item.amount * (allowedCoeff / actualCoeff) * 100) / 100;
+        const overAmount = Math.round((item.amount - standardAmount) * 100) / 100;
+        compliantAmount = standardAmount;
         issues.push({
           field: 'transportation_class',
-          message: `机票舱位超标：职级标准${allowedClass}，实际${item.classLevel}`,
+          message: `机票舱位超标：职级标准${allowedClass}，实际${item.classLevel}，按系数折算超标¥${overAmount.toFixed(2)}`,
           limit: allowedClass,
-          actual: item.classLevel
+          actual: item.classLevel,
+          overAmount: overAmount
         });
       }
     }
@@ -441,7 +467,7 @@ function validateExpenseItem(item, employeeLevel) {
       compliantAmount = item.amount - overAmount;
       issues.push({
         field: 'allowance',
-        message: `补贴超标：标准${dailyLimit}元/天，实际${perDay.toFixed(2)}元/天`,
+        message: `补贴超标：标准${dailyLimit}元/天，实际${perDay.toFixed(2)}元/天，超标¥${overAmount.toFixed(2)}`,
         limit: dailyLimit,
         actual: perDay,
         overAmount: overAmount
