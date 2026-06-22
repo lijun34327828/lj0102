@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>差旅报销审核系统 - 财务视图</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color:#333; }
+.header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 20px 40px; color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.header h1 { font-size: 24px; margin-bottom: 4px; }
+.header p { font-size: 13px; opacity: 0.85; }
+.container { max-width: 1400px; margin: 24px auto; padding: 0 24px; }
+.stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+.stat-card .number { font-size: 32px; font-weight: bold; color: #1e3c72; }
+.stat-card.pending .number { color: #fa8c16; }
+.stat-card.approved .number { color: #52c41a; }
+.stat-card.rejected .number { color: #ff4d4f; }
+.stat-card.partial .number { color: #1890ff; }
+.stat-card .label { font-size: 13px; color: #666; margin-top: 6px; }
+.main-content { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+.panel { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.panel-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.panel-header h2 { font-size: 16px; color: #333; }
+.tabs { display: flex; gap: 4px; }
+.tab { padding: 6px 14px; border: none; background: #f5f5f5; border-radius: 4px; cursor: pointer; font-size: 13px; color: #666; }
+.tab.active { background: #1e3c72; color: white; }
+.report-list { max-height: calc(100vh - 340px); overflow-y: auto; }
+.report-item { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
+.report-item:hover { background: #f5f9ff; }
+.report-item.active { background: #e6f0ff; border-left: 3px solid #1e3c72; }
+.report-item .title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.report-item .name { font-weight: 600; color: #333; font-size: 15px; }
+.report-item .amount { font-weight: bold; color: #1e3c72; font-size: 15px; }
+.report-item .meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #888; }
+.report-item .id { color: #999; }
+.report-item .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.badge.pending { background: #fff7e6; color: #fa8c16; }
+.badge.approved { background: #f6ffed; color: #52c41a; }
+.badge.rejected { background: #fff1f0; color: #ff4d4f; }
+.badge.partial { background: #e6f7ff; color: #1890ff; }
+.detail-panel { padding: 24px; }
+.detail-empty { text-align: center; padding: 80px 20px; color: #999; }
+.detail-header { border-bottom: 1px solid #eee; padding-bottom: 16px; margin-bottom: 20px; }
+.detail-title { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.detail-title h3 { font-size: 18px; color: #333; }
+.detail-title .status-badge { padding: 4px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; }
+.detail-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 13px; color: #666; }
+.detail-meta .meta-item span:first-child { color: #999; margin-right: 6px; }
+.section { margin-bottom: 20px; }
+.section-title { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 12px; padding-left: 8px; border-left: 3px solid #1e3c72; }
+.validation-box { padding: 12px 16px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
+.validation-box.error { background: #fff1f0; border: 1px solid #ffa39e; color: #ff4d4f; }
+.validation-box.warning { background: #fff7e6; border: 1px solid #ffd591; color: #fa8c16; }
+.validation-box.success { background: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+.validation-box.info { background: #e6f7ff; border: 1px solid #91d5ff; color: #1890ff; }
+.item-card { border: 1px solid #e8e8e8; border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
+.item-card.over-limit { border-color: #ff4d4f; background: #fffbfb; }
+.item-card.approved-item { border-color: #52c41a; }
+.item-card.rejected-item { border-color: #d9d9d9; opacity: 0.6; }
+.item-card.partial-item { border-color: #1890ff; }
+.item-header { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
+.item-card.over-limit .item-header { background: #fff1f0; }
+.item-header .item-title { font-weight: 600; color: #333; font-size: 14px; }
+.item-header .item-amount { font-weight: bold; color: #1e3c72; font-size: 15px; }
+.item-card.over-limit .item-amount { color: #ff4d4f; }
+.item-body { padding: 12px 16px; font-size: 13px; color: #666; }
+.item-body .item-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.item-body .item-row span:first-child { color: #999; }
+.issues-list { margin-top: 8px; padding: 10px 12px; background: #fff1f0; border-radius: 4px; }
+.issue-item { color: #ff4d4f; font-size: 12px; padding: 3px 0; }
+.issue-item::before { content: '⚠ '; }
+.decision-row { padding: 12px 16px; background: #f9f9f9; border-top: 1px solid #eee; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.decision-btn { padding: 6px 16px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px; background: white; }
+.decision-btn.approve { border-color: #52c41a; color: #52c41a; }
+.decision-btn.approve.active { background: #52c41a; color: white; }
+.decision-btn.reject { border-color: #ff4d4f; color: #ff4d4f; }
+.decision-btn.reject.active { background: #ff4d4f; color: white; }
+.decision-btn.partial { border-color: #1890ff; color: #1890ff; }
+.decision-btn.partial.active { background: #1890ff; color: white; }
+.partial-input { width: 100px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+.note-input { flex: 1; min-width: 200px; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+.action-bar { margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; }
+.btn { padding: 10px 24px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; }
+.btn-primary { background: #1e3c72; color: white; }
+.btn-primary:hover { background: #152a52; }
+.btn-secondary { background: #f5f5f5; color: #666; }
+.btn:disabled { background: #ccc; cursor: not-allowed; }
+.summary-box { padding: 16px; background: #fafafa; border-radius: 6px; border: 1px solid #e8e8e8; }
+.summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+.summary-row.total { font-size: 16px; font-weight: bold; border-top: 1px solid #ddd; padding-top: 12px; margin-top: 6px; }
+.summary-row .label { color: #666; }
+.summary-row.over .value { color: #ff4d4f; }
+.summary-row.approved .value { color: #52c41a; font-weight: bold; }
+.approval-info { padding: 12px 16px; background: #f5f5f5; border-radius: 6px; font-size: 13px; }
+.approval-info .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.approval-info .row span:first-child { color: #888; }
+.type-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-right: 6px; }
+.type-tag.transportation { background: #e6f7ff; color: #1890ff; }
+.type-tag.accommodation { background: #f9f0ff; color: #722ed1; }
+.type-tag.allowance { background: #fff7e6; color: #fa8c16; }
+.type-tag.meal { background: #f6ffed; color: #52c41a; }
+.nav-links { display: flex; gap: 16px; margin-top: 8px; }
+.nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 13px; padding: 4px 12px; border-radius: 4px; }
+.nav-links a:hover { background: rgba(255,255,255,0.15); color: white; }
+.nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏢 差旅报销合规审核系统</h1>
+  <p>财务人员专用视图 · 多职级分层限额校验 · 分段智能审批</p>
+  <div class="nav-links">
+    <a href="./index.html" class="active">📋 财务审核</a>
+    <a href="./submit.html">📝 员工报销</a>
+  </div>
+</div>
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="number" id="stat-total">0</div>
+      <div class="label">报销单总数</div>
+    </div>
+    <div class="stat-card pending">
+      <div class="number" id="stat-pending">0</div>
+      <div class="label">待审核</div>
+    </div>
+    <div class="stat-card approved">
+      <div class="number" id="stat-approved">0</div>
+      <div class="label">已通过</div>
+    </div>
+    <div class="stat-card partial">
+      <div class="number" id="stat-partial">0</div>
+      <div class="label">部分通过</div>
+    </div>
+    <div class="stat-card rejected">
+      <div class="number" id="stat-rejected">0</div>
+      <div class="label">已驳回</div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>报销单列表</h2>
+        <div class="tabs">
+          <button class="tab active" data-status="all">全部</button>
+          <button class="tab" data-status="pending">待审核</button>
+          <button class="tab" data-status="approved">已通过</button>
+          <button class="tab" data-status="partial">部分</button>
+        </div>
+      </div>
+      <div class="report-list" id="report-list"></div>
+    </div>
+    <div class="panel">
+      <div id="detail-container">
+        <div class="detail-empty">
+          <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
+          <p>请从左侧选择报销单进行审核</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8912/api';
+let currentReports = [];
+let currentFilter = 'all';
+let currentDetail = null;
+let decisions = {};
+
+async function fetchStats() {
+  try {
+    const res = await fetch(`${API_BASE}/stats`);
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('stat-total').textContent = data.data.totalReports;
+      document.getElementById('stat-pending').textContent = data.data.pending;
+      document.getElementById('stat-approved').textContent = data.data.approved;
+      document.getElementById('stat-partial').textContent = data.data.partial;
+      document.getElementById('stat-rejected').textContent = data.data.rejected;
+    }
+  } catch (e) { console.error(e); }
+}
+
+async function fetchReports() {
+  try {
+    const url = currentFilter === 'all' ? `${API_BASE}/expenses` : `${API_BASE}/expenses?status=${currentFilter}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.success) {
+      currentReports = data.data;
+      renderReportList();
+    }
+  } catch (e) { console.error(e); }
+}
+
+function statusLabel(status) {
+  const map = { pending: '待审核', approved: '已通过', rejected: '已驳回', partial: '部分通过' };
+  return map[status] || status;
+}
+
+function typeLabel(type) {
+  const map = { transportation: '交通', accommodation: '住宿', allowance: '补贴', meal: '餐饮' };
+  return map[type] || type;
+}
+
+function renderReportList() {
+  const list = document.getElementById('report-list');
+  if (currentReports.length === 0) {
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">暂无数据</div>';
+    return;
+  }
+  list.innerHTML = currentReports.map(r => `
+    <div class="report-item ${currentDetail && currentDetail.report.id === r.id ? 'active' : ''}" data-id="${r.id}">
+      <div class="title">
+        <span class="name">${r.employeeName} · ${r.employeeLevel}</span>
+        <span class="amount">¥${r.totalAmount.toLocaleString()}</span>
+      </div>
+      <div class="meta">
+        <span class="id">${r.id}</span>
+        <span class="badge ${r.status}">${statusLabel(r.status)}</span>
+      </div>
+      <div class="meta" style="margin-top: 4px;">
+        <span>${r.purpose}</span>
+        <span>${r.submitDate}</span>
+      </div>
+    </div>
+  `).join('');
+  list.querySelectorAll('.report-item').forEach(el => {
+    el.addEventListener('click', () => fetchDetail(el.dataset.id));
+  });
+}
+
+async function fetchDetail(id) {
+  try {
+    const res = await fetch(`${API_BASE}/expenses/${id}`);
+    const data = await res.json();
+    if (data.success) {
+      currentDetail = data.data;
+      decisions = {};
+      currentDetail.report.items.forEach(item => {
+        if (item.status === 'approved') decisions[item.id] = { status: 'approved', approvedAmount: item.approvedAmount || item.amount, note: item.reviewNote || '' };
+        else if (item.status === 'rejected') decisions[item.id] = { status: 'rejected', note: item.reviewNote || '' };
+        else if (item.status === 'partial') decisions[item.id] = { status: 'partial', approvedAmount: item.approvedAmount || 0, note: item.reviewNote || '' };
+      });
+      renderDetail();
+      renderReportList();
+    }
+  } catch (e) { console.error(e); }
+}
+
+function getValidationMap() {
+  const map = {};
+  if (currentDetail && currentDetail.validations) {
+    currentDetail.validations.itemValidations.forEach(v => { map[v.itemId] = v; });
+  }
+  return map;
+}
+
+function renderDetail() {
+  const container = document.getElementById('detail-container');
+  const { report, approval, standard, validations } = currentDetail;
+  const vMap = getValidationMap();
+  const isReviewed = report.status !== 'pending';
+
+  let validationsHtml = '';
+  if (validations.rejectWithoutApproval) {
+    validationsHtml += `<div class="validation-box error"><strong>❌ 无前置审批单：</strong>该报销单未关联出差审批单，系统建议直接驳回</div>`;
+  } else if (approval) {
+    validationsHtml += `<div class="validation-box success"><strong>✅ 审批单已关联：</strong>${approval.id} - ${approval.purpose}</div>`;
+  }
+  if (!validations.dateValidation.matched) {
+    validationsHtml += `<div class="validation-box warning"><strong>⚠️ 日期不匹配：</strong>${validations.dateValidation.message}`;
+    validations.dateValidation.mismatchedItems.forEach(m => { validationsHtml += `<div style="margin-top:4px;font-size:12px;">· ${m.description} (${m.itemDate}) 超出审批范围 ${m.approvalRange}</div>`; });
+    validationsHtml += `</div>`;
+  }
+  if (!validations.cityValidation.matched) {
+    validationsHtml += `<div class="validation-box warning"><strong>⚠️ 城市不匹配：</strong>存在不在审批城市内的行程`;
+    validations.cityValidation.mismatchedItems.forEach(m => { validationsHtml += `<div style="margin-top:4px;font-size:12px;">· ${m.description} (${m.itemCity}) 不在审批城市 ${m.approvedCities.join(',')} 内</div>`; });
+    validationsHtml += `</div>`;
+  }
+  const overItems = Object.values(vMap).filter(v => v.isOverLimit);
+  if (overItems.length > 0) {
+    validationsHtml += `<div class="validation-box error"><strong>🚨 超标预警：</strong>共检测到 ${overItems.length} 项超标支出，请重点审核</div>`;
+  }
+  if (validationsHtml === '') validationsHtml = `<div class="validation-box success"><strong>✅ 合规校验通过：</strong>所有项目符合差旅标准</div>`;
+
+  let itemsHtml = report.items.map(item => {
+    const v = vMap[item.id];
+    const isOver = v && v.isOverLimit;
+    const d = decisions[item.id] || {};
+    let cardClass = 'item-card';
+    if (isOver) cardClass += ' over-limit';
+    if (d.status === 'approved') cardClass += ' approved-item';
+    else if (d.status === 'rejected') cardClass += ' rejected-item';
+    else if (d.status === 'partial') cardClass += ' partial-item';
+
+    let extraRows = '';
+    if (item.category === 'highSpeedRail' || item.category === 'flight') extraRows += `<div class="item-row"><span>舱位/座位</span><span>${item.classLevel || '-'}</span></div>`;
+    if (item.nights) extraRows += `<div class="item-row"><span>间夜数</span><span>${item.nights} 晚</span></div>`;
+    if (item.perNight) extraRows += `<div class="item-row"><span>单价</span><span class="${isOver && v.issues.some(i=>i.field==='accommodation') ? 'over-limit-text' : ''}">¥${item.perNight}/晚</span></div>`;
+    if (item.days) extraRows += `<div class="item-row"><span>天数</span><span>${item.days} 天</span></div>`;
+
+    let issuesHtml = '';
+    if (isOver && v.issues.length > 0) {
+      issuesHtml = `<div class="issues-list">${v.issues.map(i => `<div class="issue-item">${i.message}</div>`).join('')}</div>`;
+    }
+
+    let decisionHtml = '';
+    if (!isReviewed) {
+      decisionHtml = `
+        <div class="decision-row">
+          <button class="decision-btn approve ${d.status==='approved'?'active':''}" data-item="${item.id}" data-decision="approved">✓ 通过</button>
+          <button class="decision-btn partial ${d.status==='partial'?'active':''}" data-item="${item.id}" data-decision="partial">◐ 部分通过</button>
+          ${d.status === 'partial' ? `<input type="number" class="partial-input" placeholder="核准金额" data-item="${item.id}" value="${d.approvedAmount||''}" />` : ''}
+          <button class="decision-btn reject ${d.status==='rejected'?'active':''}" data-item="${item.id}" data-decision="rejected">✗ 驳回</button>
+          <input type="text" class="note-input" placeholder="审批备注（可选）" data-item="${item.id}" data-field="note" value="${d.note||''}" />
+        </div>`;
+    } else if (d.status) {
+      const statusText = d.status === 'approved' ? '已通过' : d.status === 'rejected' ? '已驳回' : '部分通过';
+      const statusColor = d.status === 'approved' ? '#52c41a' : d.status === 'rejected' ? '#ff4d4f' : '#1890ff';
+      let amountText = '';
+      if (d.status === 'approved' || d.status === 'partial') amountText = ` · 核准 ¥${(d.approvedAmount||0).toLocaleString()}`;
+      decisionHtml = `<div class="decision-row" style="color:${statusColor};font-weight:600;">● ${statusText}${amountText}${d.note ? ' · 备注：' + d.note : ''}</div>`;
+    }
+
+    return `
+      <div class="${cardClass}">
+        <div class="item-header">
+          <span class="item-title">
+            <span class="type-tag ${item.type}">${typeLabel(item.type)}</span>
+            ${item.description}
+          </span>
+          <span class="item-amount">¥${item.amount.toLocaleString()}</span>
+        </div>
+        <div class="item-body">
+          <div class="item-row"><span>日期</span><span>${item.date}${item.city ? ' · ' + item.city : ''}</span></div>
+          ${extraRows}
+          ${issuesHtml}
+        </div>
+        ${decisionHtml}
+      </div>
+    `;
+  }).join('');
+
+  let summaryHtml = '';
+  if (!isReviewed) {
+    const approvedTotal = Object.values(decisions).reduce((s, d) => {
+      if (d.status === 'approved') return s + (d.approvedAmount || 0);
+      if (d.status === 'partial') return s + (d.approvedAmount || 0);
+      return s;
+    }, 0);
+    const rejectedTotal = Object.entries(decisions).reduce((s, [id, d]) => {
+      if (d.status === 'rejected') {
+        const item = report.items.find(i => i.id === id);
+        return s + (item ? item.amount : 0);
+      }
+      if (d.status === 'partial') {
+        const item = report.items.find(i => i.id === id);
+        return s + ((item ? item.amount : 0) - (d.approvedAmount || 0));
+      }
+      return s;
+    }, 0);
+    const decidedCount = Object.keys(decisions).length;
+    summaryHtml = `
+      <div class="section">
+        <div class="section-title">审批汇总</div>
+        <div class="summary-box">
+          <div class="summary-row"><span class="label">报销单总额</span><span>¥${report.totalAmount.toLocaleString()}</span></div>
+          <div class="summary-row approved"><span class="label">✓ 拟通过金额</span><span>¥${approvedTotal.toLocaleString()}</span></div>
+          <div class="summary-row over"><span class="label">✗ 拟剔除金额</span><span>¥${rejectedTotal.toLocaleString()}</span></div>
+          <div class="summary-row"><span class="label">已决策项目</span><span>${decidedCount} / ${report.items.length} 项</span></div>
+          <div class="summary-row total"><span class="label">本次结算金额</span><span style="color:#1e3c72;">¥${approvedTotal.toLocaleString()}</span></div>
+        </div>
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-secondary" onclick="clearDecisions()">重置决策</button>
+        <button class="btn btn-primary" id="submit-review-btn" onclick="submitReview()">提交审核结果</button>
+      </div>
+    `;
+  } else if (report.reviewResult) {
+    summaryHtml = `
+      <div class="section">
+        <div class="section-title">审核结果</div>
+        <div class="summary-box">
+          <div class="summary-row"><span class="label">审核人</span><span>${report.reviewResult.reviewer}</span></div>
+          <div class="summary-row"><span class="label">审核时间</span><span>${new Date(report.reviewResult.reviewDate).toLocaleString('zh-CN')}</span></div>
+          <div class="summary-row"><span class="label">通过项目</span><span>${report.reviewResult.approvedCount} 项</span></div>
+          <div class="summary-row"><span class="label">驳回项目</span><span>${report.reviewResult.rejectedCount} 项</span></div>
+          <div class="summary-row total approved"><span class="label">最终结算金额</span><span>¥${report.reviewResult.approvedAmount.toLocaleString()}</span></div>
+          ${report.reviewResult.overallNote ? `<div class="summary-row"><span class="label">审核备注</span><span>${report.reviewResult.overallNote}</span></div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  const approvalHtml = approval ? `
+    <div class="section">
+      <div class="section-title">关联审批单</div>
+      <div class="approval-info">
+        <div class="row"><span>审批单号</span><span>${approval.id}</span></div>
+        <div class="row"><span>出差事由</span><span>${approval.purpose}</span></div>
+        <div class="row"><span>出差日期</span><span>${approval.startDate} ~ ${approval.endDate}</span></div>
+        <div class="row"><span>出差城市</span><span>${approval.cities.join('、')}</span></div>
+        <div class="row"><span>审批金额</span><span>¥${approval.amount.toLocaleString()}</span></div>
+      </div>
+    </div>
+  ` : '';
+
+  container.innerHTML = `
+    <div class="detail-panel">
+      <div class="detail-header">
+        <div class="detail-title">
+          <h3>${report.purpose} <span style="font-size:13px;color:#888;font-weight:normal;">(${report.id})</span></h3>
+          <span class="status-badge badge ${report.status}">${statusLabel(report.status)}</span>
+        </div>
+        <div class="detail-meta">
+          <div class="meta-item"><span>申请人：</span>${report.employeeName}</div>
+          <div class="meta-item"><span>职级：</span>${report.employeeLevel}</div>
+          <div class="meta-item"><span>提交日期：</span>${report.submitDate}</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">合规校验结果</div>
+        ${validationsHtml}
+      </div>
+      ${approvalHtml}
+      <div class="section">
+        <div class="section-title">费用明细 (${report.items.length} 项)</div>
+        ${itemsHtml}
+      </div>
+      ${summaryHtml}
+    </div>
+  `;
+
+  if (!isReviewed) {
+    container.querySelectorAll('.decision-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const itemId = btn.dataset.item;
+        const decision = btn.dataset.decision;
+        if (!decisions[itemId]) decisions[itemId] = { status: decision, note: '' };
+        decisions[itemId].status = decision;
+        if (decision === 'approved') {
+          const item = report.items.find(i => i.id === itemId);
+          const v = vMap[itemId];
+          decisions[itemId].approvedAmount = v ? v.compliantAmount : item.amount;
+        } else if (decision === 'partial') {
+          const item = report.items.find(i => i.id === itemId);
+          decisions[itemId].approvedAmount = decisions[itemId].approvedAmount || Math.floor(item.amount * 0.8);
+        }
+        renderDetail();
+      });
+    });
+    container.querySelectorAll('.partial-input, .note-input').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const itemId = inp.dataset.item;
+        const field = inp.dataset.field;
+        if (!decisions[itemId]) decisions[itemId] = {};
+        if (field === 'note') decisions[itemId].note = inp.value;
+        else decisions[itemId].approvedAmount = parseFloat(inp.value) || 0;
+      });
+    });
+  }
+}
+
+function clearDecisions() {
+  decisions = {};
+  renderDetail();
+}
+
+async function submitReview() {
+  const decidedItems = Object.keys(decisions);
+  if (decidedItems.length === 0) { alert('请至少对一项费用做出审批决策'); return; }
+  if (decidedItems.length < currentDetail.report.items.length) {
+    if (!confirm(`还有 ${currentDetail.report.items.length - decidedItems.length} 项未决策，是否继续提交？未决策项将默认按合规金额通过`)) return;
+  }
+  const vMap = getValidationMap();
+  const finalDecisions = currentDetail.report.items.map(item => {
+    if (decisions[item.id]) return { itemId: item.id, ...decisions[item.id] };
+    const v = vMap[item.id];
+    return { itemId: item.id, status: 'approved', approvedAmount: v ? v.compliantAmount : item.amount, note: '' };
+  });
+  try {
+    const res = await fetch(`${API_BASE}/expenses/${currentDetail.report.id}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decisions: finalDecisions, reviewer: '财务管理员' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('审核提交成功！');
+      await fetchStats();
+      await fetchDetail(currentDetail.report.id);
+      await fetchReports();
+    }
+  } catch (e) { console.error(e); alert('提交失败'); }
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentFilter = tab.dataset.status;
+    fetchReports();
+  });
+});
+
+fetchStats();
+fetchReports();
+</script>
+</body>
+</html>

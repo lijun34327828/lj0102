@@ -1,0 +1,12 @@
+{
+  "name": "travel-expense-frontend",
+  "version": "1.0.0",
+  "description": "差旅报销财务可视化视图",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

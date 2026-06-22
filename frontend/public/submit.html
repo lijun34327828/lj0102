@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>差旅报销提交 - 员工视图</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color:#333; }
+.header { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 20px 40px; color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.header h1 { font-size: 24px; margin-bottom: 4px; }
+.header p { font-size: 13px; opacity: 0.85; }
+.nav-links { display: flex; gap: 16px; margin-top: 8px; }
+.nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 13px; padding: 4px 12px; border-radius: 4px; }
+.nav-links a:hover { background: rgba(255,255,255,0.15); color: white; }
+.nav-links a.active { background: rgba(255,255,255,0.2); color: white; }
+.container { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+.panel { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 28px; margin-bottom: 24px; }
+.panel-title { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+.form-group { display: flex; flex-direction: column; }
+.form-group.full { grid-column: span 2; }
+.form-group label { font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 500; }
+.form-group label .required { color: #ff4d4f; }
+.form-group select, .form-group input, .form-group textarea {
+  padding: 9px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px;
+  transition: border-color 0.2s; font-family: inherit;
+}
+.form-group select:focus, .form-group input:focus, .form-group textarea:focus {
+  outline: none; border-color: #1e3c72; box-shadow: 0 0 0 2px rgba(30,60,114,0.1);
+}
+.btn { padding: 10px 24px; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; }
+.btn-primary { background: #1e3c72; color: white; }
+.btn-primary:hover { background: #152a52; }
+.btn-secondary { background: #f5f5f5; color: #666; }
+.btn-danger { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.item-section { border: 1px solid #e8e8e8; border-radius: 6px; padding: 20px; margin-bottom: 16px; position: relative; }
+.item-section.over-limit { border-color: #ff4d4f; background: #fffbfb; }
+.item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.item-number { font-weight: 600; color: #1e3c72; }
+.remove-btn { position: absolute; top: 12px; right: 12px; }
+.validation-preview { margin-top: 16px; padding: 16px; background: #f5f5f5; border-radius: 6px; }
+.validation-box { padding: 12px 16px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; }
+.validation-box.error { background: #fff1f0; border: 1px solid #ffa39e; color: #ff4d4f; }
+.validation-box.warning { background: #fff7e6; border: 1px solid #ffd591; color: #fa8c16; }
+.validation-box.success { background: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+.validation-box.info { background: #e6f7ff; border: 1px solid #91d5ff; color: #1890ff; }
+.amount-summary { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #fafafa; border-radius: 6px; border: 1px solid #e8e8e8; margin-top: 24px; }
+.amount-summary .label { font-size: 14px; color: #666; }
+.amount-summary .amount { font-size: 28px; font-weight: bold; color: #1e3c72; }
+.amount-summary .amount.over { color: #ff4d4f; }
+.action-bar { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.standard-info { padding: 12px 16px; background: #e6f7ff; border-radius: 6px; font-size: 13px; color: #1890ff; margin-bottom: 20px; }
+.standard-info strong { color: #1e3c72; }
+.hidden { display: none; }
+.select-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.type-tag { display: inline-block; padding: 2px 10px; border-radius: 3px; font-size: 12px; font-weight: 500; }
+.type-tag.transportation { background: #e6f7ff; color: #1890ff; }
+.type-tag.accommodation { background: #f9f0ff; color: #722ed1; }
+.type-tag.allowance { background: #fff7e6; color: #fa8c16; }
+.type-tag.meal { background: #f6ffed; color: #52c41a; }
+.item-issues { margin-top: 12px; padding: 10px 12px; background: #fff1f0; border-radius: 4px; }
+.issue-item { color: #ff4d4f; font-size: 12px; padding: 3px 0; }
+.issue-item::before { content: '⚠ '; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>✈️ 差旅报销提交系统</h1>
+  <p>员工报销申请 · 智能合规预校验</p>
+  <div class="nav-links">
+    <a href="./index.html">📋 财务审核</a>
+    <a href="./submit.html" class="active">📝 员工报销</a>
+  </div>
+</div>
+<div class="container">
+  <form id="expense-form">
+    <div class="panel">
+      <div class="panel-title">基本信息</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label><span class="required">*</span> 选择员工</label>
+          <select id="employee-select" required>
+            <option value="">请选择员工</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>关联出差审批单</label>
+          <select id="approval-select">
+            <option value="">无审批单（可能被驳回）</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full">
+          <label><span class="required">*</span> 出差事由</label>
+          <input type="text" id="purpose" placeholder="请输入出差事由，如：客户拜访、技术会议等" required />
+        </div>
+      </div>
+      <div id="standard-info" class="standard-info hidden"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>费用明细</span>
+        <button type="button" class="btn btn-sm btn-primary" onclick="addExpenseItem()">+ 添加费用项</button>
+      </div>
+      <div id="items-container"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">实时合规校验</div>
+      <div id="validation-result">
+        <div class="validation-box info">请填写员工信息和费用明细后，点击"预校验"查看合规结果</div>
+      </div>
+    </div>
+
+    <div class="amount-summary">
+      <div>
+        <div class="label">报销总额</div>
+        <div style="font-size:12px;color:#999;margin-top:4px;">系统自动计算</div>
+      </div>
+      <div>
+        <div class="amount" id="total-amount">¥0</div>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button type="button" class="btn btn-secondary" onclick="validateForm()">🔍 预校验</button>
+      <button type="button" class="btn btn-primary" onclick="submitForm()">📤 提交报销单</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8912/api';
+let employees = [];
+let approvals = [];
+let standards = null;
+let expenseItems = [];
+let itemCounter = 0;
+let validationCache = null;
+
+const CITY_OPTIONS = ['北京','上海','广州','深圳','杭州','南京','成都','武汉','西安','重庆','天津','苏州','长沙','青岛','大连','厦门','郑州','合肥','福州','济南','昆明','哈尔滨','沈阳','长春','南昌','石家庄','太原','南宁','贵阳','兰州','乌鲁木齐','呼和浩特'];
+
+async function init() {
+  try {
+    const [empRes, apprRes, stdRes] = await Promise.all([
+      fetch(`${API_BASE}/employees`),
+      fetch(`${API_BASE}/approvals`),
+      fetch(`${API_BASE}/standards`)
+    ]);
+    const empData = await empRes.json();
+    const apprData = await apprRes.json();
+    const stdData = await stdRes.json();
+    if (empData.success) employees = empData.data;
+    if (apprData.success) approvals = apprData.data;
+    if (stdData.success) standards = stdData.data.standards;
+    renderEmployeeSelect();
+    addExpenseItem();
+    document.getElementById('employee-select').addEventListener('change', onEmployeeChange);
+  } catch (e) {
+    console.error(e);
+    document.getElementById('validation-result').innerHTML = '<div class="validation-box error">无法连接后端服务，请确认端口8912已启动</div>';
+  }
+}
+
+function renderEmployeeSelect() {
+  const sel = document.getElementById('employee-select');
+  sel.innerHTML = '<option value="">请选择员工</option>' + employees.map(e => `<option value="${e.id}">${e.id} - ${e.name} (${e.level} · ${e.department})</option>`).join('');
+}
+
+function onEmployeeChange() {
+  const empId = document.getElementById('employee-select').value;
+  const emp = employees.find(e => e.id === empId);
+  const approvalSel = document.getElementById('approval-select');
+  if (emp) {
+    approvalSel.innerHTML = '<option value="">无审批单（可能被驳回）</option>' +
+      approvals.filter(a => a.employeeId === empId).map(a => `<option value="${a.id}">${a.id} - ${a.purpose} (${a.startDate} ~ ${a.endDate})</option>`).join('');
+    const std = standards[emp.level];
+    if (std) {
+      const info = document.getElementById('standard-info');
+      info.classList.remove('hidden');
+      info.innerHTML = `<strong>📋 ${emp.level} 差旅标准：</strong>
+        住宿 一线¥${std.accommodation.firstTier}/晚 · 二线¥${std.accommodation.secondTier}/晚 · 三线¥${std.accommodation.thirdTier}/晚 |
+        高铁 ${std.transportation.highSpeedRail} · 机票 ${std.transportation.flight} · 补贴 ¥${std.transportation.dailyAllowance}/天`;
+    }
+  } else {
+    approvalSel.innerHTML = '<option value="">无审批单（可能被驳回）</option>';
+    document.getElementById('standard-info').classList.add('hidden');
+  }
+}
+
+function createItemData() {
+  itemCounter++;
+  return {
+    id: 'ITEM_NEW' + itemCounter,
+    type: 'transportation',
+    category: 'taxi',
+    description: '',
+    date: new Date().toISOString().slice(0, 10),
+    city: '上海',
+    amount: 0
+  };
+}
+
+function addExpenseItem(itemData = null) {
+  const item = itemData || createItemData();
+  expenseItems.push(item);
+  renderItems();
+}
+
+function removeExpenseItem(idx) {
+  if (expenseItems.length <= 1) { alert('至少保留一项费用'); return; }
+  expenseItems.splice(idx, 1);
+  renderItems();
+  updateTotal();
+}
+
+function renderItems() {
+  const container = document.getElementById('items-container');
+  container.innerHTML = expenseItems.map((item, idx) => {
+    const v = validationCache && validationCache.itemValidations ? validationCache.itemValidations.find(v => v.itemId === item.id) : null;
+    const isOver = v && v.isOverLimit;
+    return `
+      <div class="item-section ${isOver ? 'over-limit' : ''}" data-idx="${idx}">
+        <div class="item-header">
+          <span class="item-number">费用项 #${idx + 1} <span class="type-tag ${item.type}">${typeLabel(item.type)}</span></span>
+          <button type="button" class="btn btn-sm btn-danger remove-btn" onclick="removeExpenseItem(${idx})">删除</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label><span class="required">*</span> 费用类型</label>
+            <select onchange="updateItemType(${idx}, this.value)" required>
+              <option value="transportation" ${item.type==='transportation'?'selected':''}>交通费用</option>
+              <option value="accommodation" ${item.type==='accommodation'?'selected':''}>住宿费用</option>
+              <option value="allowance" ${item.type==='allowance'?'selected':''}>出差补贴</option>
+              <option value="meal" ${item.type==='meal'?'selected':''}>餐饮费用</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><span class="required">*</span> 细分类别</label>
+            ${renderCategorySelect(item)}
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group full">
+            <label><span class="required">*</span> 费用说明</label>
+            <input type="text" placeholder="如：上海-北京 高铁 / 北京王府井酒店" value="${item.description}" onchange="updateItemField(${idx},'description',this.value)" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label><span class="required">*</span> 日期</label>
+            <input type="date" value="${item.date}" onchange="updateItemField(${idx},'date',this.value)" required />
+          </div>
+          <div class="form-group">
+            <label><span class="required">*</span> 城市</label>
+            <select onchange="updateItemField(${idx},'city',this.value)" required>
+              ${CITY_OPTIONS.map(c => `<option value="${c}" ${item.city===c?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        ${renderExtraFields(item, idx)}
+        <div class="form-row">
+          <div class="form-group">
+            <label><span class="required">*</span> 金额 (元)</label>
+            <input type="number" min="0" step="0.01" placeholder="请输入金额" value="${item.amount||''}" onchange="updateItemField(${idx},'amount',parseFloat(this.value)||0)" required />
+          </div>
+          ${(item.type === 'accommodation') ? `
+          <div class="form-group">
+            <label>住宿间夜数</label>
+            <input type="number" min="1" placeholder="如：3" value="${item.nights||''}" onchange="updateItemField(${idx},'nights',parseInt(this.value)||1)" />
+          </div>` : ''}
+          ${(item.type === 'allowance') ? `
+          <div class="form-group">
+            <label>补贴天数</label>
+            <input type="number" min="1" placeholder="如：5" value="${item.days||''}" onchange="updateItemField(${idx},'days',parseInt(this.value)||1)" />
+          </div>` : ''}
+        </div>
+        ${isOver && v.issues.length > 0 ? `<div class="item-issues">${v.issues.map(i => `<div class="issue-item">${i.message}</div>`).join('')}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+  updateTotal();
+}
+
+function renderCategorySelect(item) {
+  const cats = {
+    transportation: [
+      { v: 'highSpeedRail', l: '高铁/动车' },
+      { v: 'flight', l: '飞机' },
+      { v: 'taxi', l: '出租车/网约车' },
+      { v: 'train', l: '普通火车' },
+      { v: 'bus', l: '长途汽车' }
+    ],
+    accommodation: [{ v: 'hotel', l: '酒店住宿' }],
+    allowance: [{ v: 'daily', l: '日常补贴' }],
+    meal: [
+      { v: 'breakfast', l: '早餐' },
+      { v: 'lunch', l: '午餐' },
+      { v: 'dinner', l: '晚餐' },
+      { v: 'entertainment', l: '宴请招待' }
+    ]
+  };
+  const options = (cats[item.type] || []).map(c => `<option value="${c.v}" ${item.category===c.v?'selected':''}>${c.l}</option>`).join('');
+  return `<select onchange="updateItemField(${Array.from(document.querySelectorAll('.item-section')).findIndex(s => true)},'category',this.value)">${options}</select>`;
+}
+
+function renderExtraFields(item, idx) {
+  if (item.type === 'transportation' && (item.category === 'highSpeedRail' || item.category === 'flight')) {
+    const classes = item.category === 'highSpeedRail' ? ['二等座','一等座','商务座'] : ['经济舱','超级经济舱','商务舱','头等舱'];
+    return `<div class="form-row">
+      <div class="form-group">
+        <label>舱位/座位等级</label>
+        <select onchange="updateItemField(${idx},'classLevel',this.value)">
+          <option value="">请选择</option>
+          ${classes.map(c => `<option value="${c}" ${item.classLevel===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+function updateItemType(idx, type) {
+  expenseItems[idx].type = type;
+  const defaultCats = { transportation: 'taxi', accommodation: 'hotel', allowance: 'daily', meal: 'dinner' };
+  expenseItems[idx].category = defaultCats[type];
+  if (type !== 'transportation') delete expenseItems[idx].classLevel;
+  if (type !== 'accommodation') { delete expenseItems[idx].nights; delete expenseItems[idx].perNight; }
+  if (type !== 'allowance') delete expenseItems[idx].days;
+  renderItems();
+}
+
+function updateItemField(idx, field, value) {
+  expenseItems[idx][field] = value;
+  if (expenseItems[idx].type === 'accommodation' && expenseItems[idx].nights && expenseItems[idx].amount) {
+    expenseItems[idx].perNight = Math.round(expenseItems[idx].amount / expenseItems[idx].nights * 100) / 100;
+  }
+  updateTotal();
+}
+
+function updateTotal() {
+  const total = expenseItems.reduce((s, i) => s + (i.amount || 0), 0);
+  const el = document.getElementById('total-amount');
+  el.textContent = '¥' + total.toLocaleString();
+  if (validationCache && validationCache.totalOverAmount > 0) {
+    el.classList.add('over');
+  } else {
+    el.classList.remove('over');
+  }
+}
+
+function typeLabel(t) {
+  return { transportation: '交通', accommodation: '住宿', allowance: '补贴', meal: '餐饮' }[t] || t;
+}
+
+async function validateForm() {
+  const empId = document.getElementById('employee-select').value;
+  const approvalId = document.getElementById('approval-select').value;
+  const purpose = document.getElementById('purpose').value;
+  if (!empId) { alert('请选择员工'); return; }
+  if (!purpose) { alert('请填写出差事由'); return; }
+  if (expenseItems.some(i => !i.description || !i.amount || !i.date || !i.city)) { alert('请完善所有费用项信息'); return; }
+
+  try {
+    const res = await fetch(`${API_BASE}/expenses/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: empId, approvalId: approvalId, items: expenseItems })
+    });
+    const data = await res.json();
+    if (data.success) {
+      validationCache = data.data.validations;
+      renderValidationResult(data.data);
+      renderItems();
+      updateTotal();
+    }
+  } catch (e) { console.error(e); }
+}
+
+function renderValidationResult(d) {
+  const v = d.validations;
+  const box = document.getElementById('validation-result');
+  let html = '';
+
+  if (v.rejectWithoutApproval) {
+    html += `<div class="validation-box error"><strong>🚨 严重：</strong>未关联出差审批单，根据公司制度，此单据将被直接驳回。请先完成出差审批后再提交报销。</div>`;
+  } else if (d.approval) {
+    html += `<div class="validation-box success"><strong>✅ 审批单已关联：</strong>${d.approval.id} - ${d.approval.purpose} (${d.approval.startDate} ~ ${d.approval.endDate}，城市：${d.approval.cities.join('、')})</div>`;
+  }
+
+  if (!v.dateValidation.matched) {
+    html += `<div class="validation-box warning"><strong>⚠️ 日期异常：</strong>${v.dateValidation.message}`;
+    v.dateValidation.mismatchedItems.forEach(m => { html += `<div style="margin-top:4px;">· ${m.description} (${m.itemDate}) 超出审批范围</div>`; });
+    html += `</div>`;
+  }
+  if (!v.cityValidation.matched) {
+    html += `<div class="validation-box warning"><strong>⚠️ 城市异常：</strong>存在费用项目不在审批单城市范围内</div>`;
+  }
+
+  const overCount = v.itemValidations.filter(x => x.isOverLimit).length;
+  if (overCount > 0) {
+    html += `<div class="validation-box error"><strong>📊 超标检测：</strong>检测到 <strong>${overCount}</strong> 项超标，超标金额 <strong>¥${v.totalOverAmount.toLocaleString()}</strong>，合规金额 ¥${v.totalCompliantAmount.toLocaleString()}。超标项目已标红，请调整后再提交，或提交后由财务审批剔除。</div>`;
+  }
+
+  if (v.overallCompliant) {
+    html += `<div class="validation-box success"><strong>🎉 校验通过：</strong>所有项目均符合 ${d.employee.level} 差旅标准，可正常提交。</div>`;
+  }
+
+  box.innerHTML = html;
+}
+
+async function submitForm() {
+  const empId = document.getElementById('employee-select').value;
+  const approvalId = document.getElementById('approval-select').value || null;
+  const purpose = document.getElementById('purpose').value;
+  if (!empId) { alert('请选择员工'); return; }
+  if (!purpose) { alert('请填写出差事由'); return; }
+  if (expenseItems.some(i => !i.description || !i.amount || !i.date || !i.city)) { alert('请完善所有费用项信息'); return; }
+
+  if (!validationCache) await validateForm();
+
+  let confirmMsg = '确认提交报销单？\n\n';
+  if (validationCache && validationCache.rejectWithoutApproval) {
+    confirmMsg += '⚠️ 警告：未关联审批单，此单据将被直接驳回！\n';
+  }
+  if (validationCache && validationCache.totalOverAmount > 0) {
+    confirmMsg += `⚠️ 警告：超标金额 ¥${validationCache.totalOverAmount.toLocaleString()}，超标项目可能被财务驳回！\n`;
+  }
+  confirmMsg += `\n报销总额：¥${expenseItems.reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}`;
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: empId, approvalId, purpose, items: expenseItems })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(`✅ 报销单提交成功！\n\n单号：${data.data.id}\n请等待财务审核。`);
+      location.reload();
+    }
+  } catch (e) { console.error(e); alert('提交失败'); }
+}
+
+init();
+</script>
+</body>
+</html>
